@@ -1,5 +1,7 @@
 import { Inngest } from "inngest";
 import User from "../models/User.js";
+import Connection from "../models/Connections.js";
+import sendEmail from "../config/nodemailer.js";
 
 export const inngest = new Inngest({id : "pingup-app"});
 
@@ -65,6 +67,42 @@ const syncUserDeletion = inngest.createFunction(
     }
 )
 
+// inngest function to send remainder when a new connection request is added 
+
+const sendNewConnectionRequestRemainder = inngest.createFunction(
+    {id: "send-new-connection-request-remainder"},
+    {event:"app/connection-request"},
+    async({event,step}) => {
+        const{connectionId} = event.data;
+
+        await step.run('send-connection-request-mail',async()=>{
+            const connection = await Connection.findById(connectionId).populate('from_user_id to_user_id');
+            const subject = `New Connection request`;
+
+            await sendEmail({
+                to:connection.to_user_id.email,
+                subject
+            })
+            
+        })
+        const in24Hours = new Date(Date.now()+ 24*60*60*1000)
+        await step.sleepUntil("wait-for-24-hours",in24Hours)
+        await step.run('send-connection-request-remainder',async()=>{
+            const connection = await Connection.findById(connectionId).populate('from_user_id to_user_id');
+
+            if(connection.status === "accepted"){
+                return {message: "Already accepted"}
+            }
+            const subject = `New connection request`
+            await sendEmail({
+                to: connection.to_user_id.email,
+                subject
+            })
+            return {message:"remainder sent"}
+        })
+    }
+)
+
 export const functions = [
-    syncUserCreation,syncUserUpdation,syncUserDeletion
+    syncUserCreation,syncUserUpdation,syncUserDeletion,sendNewConnectionRequestRemainder
 ];
