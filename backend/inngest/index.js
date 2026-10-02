@@ -9,9 +9,8 @@ export const inngest = new Inngest({id : "pingup-app"});
 
 const syncUserCreation = inngest.createFunction(
     {id:'sync-user-from-clerk',
-    triggers: [
-        { event: 'clerk/user.created' }
-    ]},
+    triggers: [{ event: 'clerk/user.created' }]
+},
     
     async({event})=>{
         const {id,first_name,last_name,email_addresses, image_url}= event.data
@@ -70,8 +69,10 @@ const syncUserDeletion = inngest.createFunction(
 // inngest function to send remainder when a new connection request is added 
 
 const sendNewConnectionRequestRemainder = inngest.createFunction(
-    {id: "send-new-connection-request-remainder"},
-    {event:"app/connection-request"},
+    {
+        id: "send-new-connection-request-remainder",
+        triggers: [{ event: "app/connection-request" }]
+    },
     async({event,step}) => {
         const{connectionId} = event.data;
 
