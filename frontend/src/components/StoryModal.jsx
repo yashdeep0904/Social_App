@@ -1,6 +1,8 @@
+import { useAuth } from '@clerk/react'
 import { ArrowLeft, Sparkle, TextIcon, Upload } from 'lucide-react'
 import React, { useState } from 'react'
 import toast from 'react-hot-toast'
+import api from '../api/axios'
 
 const StoryModal = ({setShowModal, fetchStories}) => {
   
@@ -10,17 +12,77 @@ const StoryModal = ({setShowModal, fetchStories}) => {
     const [text, setText] = useState("")
     const [media, setMedia] = useState(null)
     const [previewUrl, setPreviewUrl] = useState(null)
+    const {getToken} = useAuth()
+
+    const MAX_VIDEO_DURATION = 60
+    const MAX_VIDEO_SIZE_MB = 50
+
 
     const handleMediaUpload = (e) => {
         const file = e.target.files?.[0]
         if(file){
-            setMedia(file)
-            setPreviewUrl(URL.createObjectURL(file))
+           if(file.type.startsWith("video")){
+            if(file.size > MAX_VIDEO_SIZE_MB*1024*1024){
+                toast.error(`Videp file size cannot exceed ${MAX_VIDEO_SIZE_MB}MB.`)
+                setMedia(null)
+                setPreviewUrl(null)
+                return
+            }
+            const video = document.createElement('video')
+
+            video.preload = 'metadata'
+            video.onloadedmetadata = ()=>{
+                window.URL.revokeObjectURL(video.src)
+                if(video.duration > MAX_VIDEO_DURATION){
+                    toast.error('Video duration cannot exceed 1 minute.')
+                    setMedia(null)
+                    setPreviewUrl(null)
+                }else{
+                    setMedia(file)
+                    setPreviewUrl(URL.createObjectURL(file))
+                    setText('')
+                    setMode("media")
+                }
+            }
+
+            video.src = URL.createObjectURL(file)
+           }else if(file.type.startsWith("image")){
+                setMedia(file)
+                setPreviewUrl(URL.createObjectURL(file))
+                setText('')
+                setMode("media")
+
+           }
         }
     }
 
     const handleCreateStory = async() => {
-        
+        const media_type = mode === 'media' ? media?.type.startsWith('image')? 'image' : 'video' : "text";
+
+        if(media_type === "text" && !text){
+            throw new Error("Please enter some text")
+        }
+        let formData = new FormData()
+        formData.append('content',text)
+        formData.append('media_type', media_type)
+        formData.append('media',media)
+        formData.append('background-color', background)
+
+        const token = await getToken()
+        try {
+            const {data} = await api.post('/api/story/create',formData,{
+                headers:{Authorization: `Bearer ${token}`}
+            })
+            if(data.success){
+                setShowModal(false)
+                toast.success("Story created successfully")
+                fetchStories()
+            }else{
+                toast.error(error.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
     }
 
   return (
@@ -57,15 +119,13 @@ const StoryModal = ({setShowModal, fetchStories}) => {
                 </button>
                 <label className={`flex-1 flex items-center justify-center gap-2 p-2 rounded cursor-pointer ${mode==='media' ? "bg-white text-black" : "bg-zinc-800"}`}>
 
-                    <input onChange={(e)=>{handleMediaUpload(e); setMode('media'); }} type="file" accept='image/*, video/*' className='hidden' />
+                    <input onChange={handleMediaUpload}type="file" accept='image/*, video/*' className='hidden' />
 
                     <Upload size={18}  />Photo/Video
                 </label>
             </div>
             <button onClick={()=>toast.promise(handleCreateStory(),{
                 loading: 'Saving...',
-                success: <p>Story Added</p>,
-                error:e=> <p>{e.message}</p>,
             })} className='flex items-center justify-center gap-2 text-white py-3 mt-4 w-full rounded bg-linear-to-r from-green-500 to-green-400 hover:from-green-600 hover:to-green-700 active:scale-95 transition cursor-pointer'>
                 <Sparkle size={18}/> Create Story            
             </button>

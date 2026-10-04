@@ -1,4 +1,5 @@
 
+
 import imagekit from "../config/imageKit.js";
 import { inngest } from "../inngest/index.js";
 import Connection from "../models/Connections.js";
@@ -242,7 +243,7 @@ export const getUserConnections = async(req,res)=>{
 }
 
 //  Accept Connections request 
-export const acceptConnectionRequest = async()=>{
+export const acceptConnectionRequest = async(req,res)=>{
     try {
         const {userId} = req.auth()
         const {id} = req.body
@@ -258,7 +259,7 @@ export const acceptConnectionRequest = async()=>{
         await user.save()
 
         const toUser = await User.findById(id);
-        toUser.connection.push(userId)
+        toUser.connections.push(userId)
         await toUser.save()
 
         connection.status = 'accepted'

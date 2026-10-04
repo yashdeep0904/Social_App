@@ -3,14 +3,31 @@ import { dummyPostsData } from '../assets/assets';
 import Loading from '../components/Loading';
 import StoriesBar from '../components/StoriesBar';
 import PostCard from '../components/PostCard';
+import { useAuth } from '@clerk/react';
+import api from '../api/axios';
+import toast from 'react-hot-toast';
 
 const Feed = () => {
 
   const [feeds, setFeeds] = useState([]);
   const [loading, setLoading] = useState(false)
+  const {getToken} = useAuth()
 
   const fetchFeeds = async() =>{
-    setFeeds(dummyPostsData)
+    try {
+      setLoading(true)
+      const {data} = await api.get('/api/post/feed',{
+        headers:{Authorization:`Bearer ${await getToken()}`}
+      })
+
+      if(data.success){
+        setFeeds(data.posts)
+      }else{
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.message)
+    }
     setLoading(false)
   }
 
@@ -35,12 +52,12 @@ const Feed = () => {
 
       {/* Right Sidebar */}
 
-      <div>
+      {/* <div>
         <div>
           <h1>Follow suggestions</h1>
         </div>
         <h1>Recent messages</h1>
-      </div>
+      </div> */}
 
     </div>
   ) : <Loading/>
